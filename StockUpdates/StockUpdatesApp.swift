@@ -11,7 +11,7 @@ import SwiftUI
 struct StockUpdatesApp: App {
     var body: some Scene {
         WindowGroup {
-            StocksListView()
+            StocksListView(viewModel: StockListViewModel(stockUseCase: StockUseCase(service: WebSocketService())))
         }
     }
 }

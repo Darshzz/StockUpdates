@@ -9,6 +9,7 @@ import Observation
 
 @Observable
 class StockDetailViewModel {
+    
     var stock: StockModel
     
     init(stock: StockModel) {

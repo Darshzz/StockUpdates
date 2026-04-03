@@ -10,6 +10,7 @@ import Foundation
 protocol WebSocketProtocol {
     func connect(symbols: [String]) -> AsyncStream<[StockModel]>
     func disconnect()
+    func observeConnectionState() -> AsyncStream<WebSocketState>
 }
 
 final class WebSocketService: WebSocketProtocol {
@@ -17,6 +18,15 @@ final class WebSocketService: WebSocketProtocol {
     private var webSocketTask: URLSessionWebSocketTask?
     private var continuation: AsyncStream<[StockModel]>.Continuation?
     private let url = URL(string: "wss://ws.postman-echo.com/raw")!
+    
+    private var stateContinuation: AsyncStream<WebSocketState>.Continuation?
+    
+    private lazy var stateStream: AsyncStream<WebSocketState> = {
+        AsyncStream { continuation in
+            self.stateContinuation = continuation
+            continuation.yield(.idle)
+        }
+    }()
     
     private var stocks: [StockModel] = []
     
@@ -27,12 +37,24 @@ final class WebSocketService: WebSocketProtocol {
             return getAsyncStream()
         }
         
+        stateContinuation?.yield(.connecting)
+        
         let session = URLSession(configuration: .default)
         webSocketTask = session.webSocketTask(with: url)
         webSocketTask?.resume()
         
         stocks = symbols.map {
             StockModel(id: $0, name: $0, price: Double.random(in: 100...500), change: 0)
+        }
+        
+        // Confirm connection using ping
+        webSocketTask?.sendPing { [weak self] error in
+            if let error {
+                print(error)
+                self?.stateContinuation?.yield(.failed)
+            } else {
+                self?.stateContinuation?.yield(.connected)
+            }
         }
         
         listen()
@@ -68,9 +90,13 @@ final class WebSocketService: WebSocketProtocol {
                let string = String(data: data, encoding: .utf8) {
                 
                 let message = URLSessionWebSocketTask.Message.string(string)
-                webSocketTask?.send(message) { error in
-                    if let error = error {
-                        print("Send error:", error)
+                webSocketTask?.send(message) { [weak self] error in
+                    guard let self = self else { return }
+                    
+                    if error != nil {
+                        self.continuation?.finish()
+                        self.stateContinuation?.yield(.failed)
+                        self.removeAll()
                     }
                 }
             }
@@ -78,23 +104,24 @@ final class WebSocketService: WebSocketProtocol {
     }
     
     private func listen() {
-        webSocketTask?.receive { [weak self] result in
-            guard let self = self else { return }
-            
-            switch result {
-            case .failure(let error):
-                print("Receive error:", error)
-                
-            case .success(let message):
-                switch message {
-                case .string(let text):
-                    self.handleMessage(text)
-                default:
+        Task {
+            while let task = webSocketTask {
+                do {
+                    let message = try await task.receive()
+                    
+                    switch message {
+                    case .string(let text):
+                        print("Received:", text)
+                        self.handleMessage(text)
+                    default:
+                        print("response not available",)
+                    }
+                    
+                } catch {
+                    print("Receive error:", error)
                     break
                 }
             }
-            
-            self.listen() // keep listening
         }
     }
     
@@ -105,19 +132,27 @@ final class WebSocketService: WebSocketProtocol {
               let price = json["price"] as? Double else { return }
         
         if let index = stocks.firstIndex(where: { $0.id == symbol }) {
-            var stock = stocks[index]
+            let stock = stocks[index]
             let change = price - stock.price
             stock.price = price
             stock.change = change
-            stocks[index] = stock
         }
         
         continuation?.yield(stocks)
     }
     
     func disconnect() {
+        stateContinuation?.yield(.disconnected)
+        removeAll()
+    }
+    
+    func removeAll() {
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         continuation?.finish()
+    }
+    
+    func observeConnectionState() -> AsyncStream<WebSocketState> {
+        stateStream
     }
 }

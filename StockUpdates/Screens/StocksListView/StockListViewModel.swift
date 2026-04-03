@@ -8,28 +8,24 @@
 import Observation
 import SwiftUI
 
+@MainActor
 @Observable
 class StockListViewModel {
 
     var stocks: [StockModel] = []
-    var isConnected = false
+    var connectionState: WebSocketState = .idle
     var stockUseCase: StockUseCaseProtocol
-    var connectionState: ConnectionState = .disconnected
     
     init(stockUseCase: StockUseCaseProtocol) {
         self.stockUseCase = stockUseCase
     }
     
     func toggleConnection() {
-        connectionState = connectionState.toggleConnection()
-        
         Task {
-            if isConnected {
+            if connectionState == .connected {
                 stockUseCase.disconnect()
-                isConnected = false
             } else {
                 await stockUseCase.connect()
-                isConnected = true
                 observe()
             }
         }
@@ -37,32 +33,17 @@ class StockListViewModel {
     
     private func observe() {
         Task {
-            for await stocks in stockUseCase.observeStocks() {
+            for await stocks in stockUseCase.observeStocks() {   
                 self.stocks = stockUseCase.sort(stocks)
             }
         }
     }
-}
-
-enum ConnectionState: String {
-    case connected = "Connected"
-    case disconnected = "Disconnected"
     
-    var color: Color {
-        switch self {
-        case .connected:
-            .green
-        case .disconnected:
-            .orange
-        }
-    }
-    
-    func toggleConnection() -> ConnectionState {
-        switch self {
-        case .connected:
-            .disconnected
-        case .disconnected:
-            .connected
+    func observeState() {
+        Task {
+            for await state in stockUseCase.observeState() {
+                connectionState = state
+            }
         }
     }
 }

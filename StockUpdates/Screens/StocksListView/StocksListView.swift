@@ -12,19 +12,15 @@ struct StocksListView: View {
     @State var viewModel: StockListViewModel
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack {
                 HStack {
-                    Button(viewModel.connectionState.rawValue) {
+                    Button(viewModel.connectionState.title) {
                         viewModel.toggleConnection()
                     }
-                    .padding()
-                    .font(.custom("Avenir-Medium", size: 15))
-                    .foregroundStyle(.white)
-                    .background(viewModel.connectionState.color)
-                    .cornerRadius(20)
-                    
-                    Spacer()
+                    .frame(width: 90)
+                    .modifier(PrimaryButtonModifier(backgroundColor: viewModel.connectionState.color))
+                    .animation(.bouncy, value: viewModel.connectionState)
                     
                     Picker("Sort", selection: $viewModel.stockUseCase.sortOption) {
                         Text("Price").tag(SortOption.price)
@@ -33,6 +29,9 @@ struct StocksListView: View {
                     .pickerStyle(SegmentedPickerStyle())
                 }
                 .padding()
+                
+                Text("\(viewModel.connectionState.description.uppercased())")
+                    .foregroundStyle(viewModel.connectionState.descriptionColor)
                 
                 List(viewModel.stocks) { stock in
                     NavigationLink(
@@ -48,7 +47,11 @@ struct StocksListView: View {
                     }
                 }
             }
+            .task {
+                viewModel.observeState()
+            }
             .navigationTitle("Stocks")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }

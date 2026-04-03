@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct StockDetailView: View {
-    var stock: StockModel
+    @Bindable var stock: StockModel
     
     var body: some View {
         VStack(spacing: 20) {

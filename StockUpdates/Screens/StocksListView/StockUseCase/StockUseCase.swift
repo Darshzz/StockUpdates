@@ -11,6 +11,7 @@ protocol StockUseCaseProtocol {
     func connect() async
     func disconnect()
     func observeStocks() -> AsyncStream<[StockModel]>
+    func observeState() -> AsyncStream<WebSocketState>
     func sort(_ stocks: [StockModel]) -> [StockModel]
 }
 
@@ -47,6 +48,10 @@ class StockUseCase: StockUseCaseProtocol {
     
     func observeStocks() -> AsyncStream<[StockModel]> {
         stream ?? AsyncStream { _ in }
+    }
+    
+    func observeState() -> AsyncStream<WebSocketState> {
+        service.observeConnectionState()
     }
     
     func sort(_ stocks: [StockModel]) -> [StockModel] {

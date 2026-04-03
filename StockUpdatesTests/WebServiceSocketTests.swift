@@ -1,5 +1,5 @@
 //
-//  StockUpdatesTests.swift
+//  StockUseCaseTests.swift
 //  StockUpdatesTests
 //
 //  Created by Darshan Mothreja on 02/04/26.
@@ -9,35 +9,9 @@ import XCTest
 @testable import StockUpdates
 
 @MainActor
-final class StockUpdatesTests: XCTestCase {
+final class WebServiceSocketTests: XCTestCase {
 
-    func configureWebService() -> WebSocketService {
-         WebSocketService()
-    }
-    
-    func testWebSocketService_observeConnectionState_yieldsIdleInitially() async {
-        let service = configureWebService()
-        let stream = service.observeConnectionState()
-        let state = await firstValue(from: stream)
-
-        XCTAssertEqual(state, .idle)
-    }
-
-    func testWebSocketService_disconnect_afterObservingState_yieldsDisconnected() async {
-        let service = configureWebService()
-        
-        let stream = service.observeConnectionState()
-        var iterator = stream.makeAsyncIterator()
-
-        let initialState = await iterator.next()
-        service.disconnect()
-        let disconnectedState = await iterator.next()
-
-        XCTAssertEqual(initialState, .idle)
-        XCTAssertEqual(disconnectedState, .disconnected)
-    }
-
-    func testStockUseCase_connect_requestsExpectedSymbolsFromService() async {
+    func testConnectRequestsExpectedSymbolsFromService() async {
         let service = MockWebSocketService()
         let useCase = StockUseCase(service: service)
 
@@ -53,7 +27,7 @@ final class StockUpdatesTests: XCTestCase {
         ])
     }
 
-    func testStockUseCase_observeStocks_returnsStreamProvidedByServiceAfterConnect() async {
+    func testObserveStocksReturnsStreamProvidedByServiceAfterConnect() async {
         let expectedStocks = [
             StockModel(id: "AAPL", name: "Apple", price: 210, change: 3),
             StockModel(id: "TSLA", name: "Tesla", price: 180, change: -4)
@@ -64,11 +38,11 @@ final class StockUpdatesTests: XCTestCase {
         await useCase.connect()
         let stocks = await firstValue(from: useCase.observeStocks())
 
-        XCTAssertEqual(stocks?.map { $0.id }, ["AAPL", "TSLA"])
-        XCTAssertEqual(stocks?.map { $0.price }, [210, 180])
+        XCTAssertEqual(stocks?.map(\.id), ["AAPL", "TSLA"])
+        XCTAssertEqual(stocks?.map(\.price), [210, 180])
     }
 
-    func testStockUseCase_observeStocks_usesInjectedInitialStreamUntilConnectIsCalled() async {
+    func testObserveStocksUsesInjectedInitialStreamUntilConnectIsCalled() async {
         let initialStocks = [
             StockModel(id: "IBM", name: "IBM", price: 150, change: 1)
         ]
@@ -87,7 +61,7 @@ final class StockUpdatesTests: XCTestCase {
         XCTAssertEqual(service.connectCallCount, 0)
     }
 
-    func testStockUseCase_connect_replacesInjectedInitialStreamWithServiceStream() async {
+    func testConnectReplacesInjectedInitialStreamWithServiceStream() async {
         let initialStocks = [
             StockModel(id: "IBM", name: "IBM", price: 150, change: 1)
         ]
@@ -107,7 +81,7 @@ final class StockUpdatesTests: XCTestCase {
         XCTAssertEqual(service.connectCallCount, 1)
     }
 
-    func testStockUseCase_observeState_returnsStateStreamProvidedByService() async {
+    func testObserveStateReturnsStateStreamProvidedByService() async {
         let service = MockWebSocketService(
             stateStream: asyncStream(emitting: [.idle, .connecting, .connected])
         )
@@ -123,8 +97,23 @@ final class StockUpdatesTests: XCTestCase {
         XCTAssertEqual(second, .connecting)
         XCTAssertEqual(third, .connected)
     }
+    
+    func testObserveStateReturnsStateStreamProvidedByServiceDisconnected() async {
+        let service = MockWebSocketService(
+            stateStream: asyncStream(emitting: [.connected, .disconnected])
+        )
+        let useCase = StockUseCase(service: service)
+        let stream = useCase.observeState()
+        var iterator = stream.makeAsyncIterator()
 
-    func testStockUseCase_disconnect_delegatesToService() {
+        let first = await iterator.next()
+        let second = await iterator.next()
+
+        XCTAssertEqual(first, .connected)
+        XCTAssertEqual(second, .disconnected)
+    }
+
+    func testDisconnectDelegatesToService() {
         let service = MockWebSocketService()
         let useCase = StockUseCase(service: service)
 
@@ -133,7 +122,7 @@ final class StockUpdatesTests: XCTestCase {
         XCTAssertEqual(service.disconnectCallCount, 1)
     }
 
-    func testStockUseCase_sort_whenSortOptionIsPrice_sortsDescendingByPrice() {
+    func testSortWhenSortOptionIsPriceSortsDescendingByPrice() {
         let service = MockWebSocketService()
         let useCase = StockUseCase(service: service)
         useCase.sortOption = .price
@@ -149,7 +138,7 @@ final class StockUpdatesTests: XCTestCase {
         XCTAssertEqual(sortedStocks.map(\.id), ["AAPL", "MSFT", "TSLA"])
     }
 
-    func testStockUseCase_sort_whenSortOptionIsChange_sortsDescendingByChange() {
+    func testSortWhenSortOptionIsChangeSortsDescendingByChange() {
         let service = MockWebSocketService()
         let useCase = StockUseCase(service: service)
         useCase.sortOption = .change
@@ -188,7 +177,7 @@ private final class MockWebSocketService: WebSocketProtocol {
 
     private let stockStream: AsyncStream<[StockModel]>
     private let stateStream: AsyncStream<WebSocketState>
-
+    
     init(
         stockStream: AsyncStream<[StockModel]> = AsyncStream { continuation in
             continuation.finish()

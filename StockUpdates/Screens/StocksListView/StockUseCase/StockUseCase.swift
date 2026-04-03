@@ -17,8 +17,10 @@ protocol StockUseCaseProtocol {
 }
 
 /// Supported sort modes for the stock list.
-enum SortOption {
-    case price, change
+enum SortOption: String, CaseIterable, Identifiable {
+    case price = "Price", change = "Change"
+
+    var id: String { rawValue }
 }
 
 /// Coordinates websocket data with view model friendly operations.

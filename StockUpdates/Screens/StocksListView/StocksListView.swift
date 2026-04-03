@@ -26,11 +26,7 @@ struct StocksListView: View {
                     .animation(.bouncy, value: viewModel.connectionState)
                     
                     // Picker changes the sort strategy applied by the view model.
-                    Picker("Sort", selection: $viewModel.stockUseCase.sortOption) {
-                        Text("Price").tag(SortOption.price)
-                        Text("Change").tag(SortOption.change)
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
+                    SortPickerView(selectedOption: $viewModel.stockUseCase.sortOption)
                 }
                 .padding()
                 

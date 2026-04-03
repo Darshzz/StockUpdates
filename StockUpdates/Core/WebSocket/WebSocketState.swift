@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+/// Represents the user-facing lifecycle states of the websocket connection.
 enum WebSocketState: Equatable {
     case idle
     case connecting
@@ -16,6 +17,7 @@ enum WebSocketState: Equatable {
 }
 
 extension WebSocketState {
+    /// Button title associated with each connection state.
     var title: String {
         switch self {
         case .connected: return "Stop"
@@ -25,6 +27,7 @@ extension WebSocketState {
         }
     }
     
+    /// Status text shown near the stock list.
     var description: String {
         switch self {
         case .connected: return "Connected"
@@ -34,6 +37,7 @@ extension WebSocketState {
         }
     }
     
+    /// Button background color for the current action state.
     var color: Color {
         switch self {
         case .connected: return .red
@@ -43,6 +47,7 @@ extension WebSocketState {
         }
     }
     
+    /// Text color used for the connection status label.
     var descriptionColor: Color {
         switch self {
         case .connected: return .green

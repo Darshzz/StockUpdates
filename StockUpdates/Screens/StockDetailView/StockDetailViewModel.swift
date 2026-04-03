@@ -8,8 +8,10 @@
 import Observation
 
 @Observable
+/// Holds the selected stock for the detail screen.
 class StockDetailViewModel {
     
+    /// Observable model displayed by the detail view.
     var stock: StockModel
     
     init(stock: StockModel) {

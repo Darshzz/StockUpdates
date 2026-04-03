@@ -7,14 +7,17 @@
 
 import SwiftUI
 
+/// Main screen that shows stock prices and connection controls.
 struct StocksListView: View {
     
+    /// State-backed view model keeps UI updates local to this screen.
     @State var viewModel: StockListViewModel
     
     var body: some View {
         NavigationStack {
             VStack {
                 HStack {
+                    // Button toggles the simulated websocket connection on and off.
                     Button(viewModel.connectionState.title) {
                         viewModel.toggleConnection()
                     }
@@ -22,6 +25,7 @@ struct StocksListView: View {
                     .modifier(PrimaryButtonModifier(backgroundColor: viewModel.connectionState.color))
                     .animation(.bouncy, value: viewModel.connectionState)
                     
+                    // Picker changes the sort strategy applied by the view model.
                     Picker("Sort", selection: $viewModel.stockUseCase.sortOption) {
                         Text("Price").tag(SortOption.price)
                         Text("Change").tag(SortOption.change)
@@ -33,6 +37,7 @@ struct StocksListView: View {
                 Text("\(viewModel.connectionState.description.uppercased())")
                     .foregroundStyle(viewModel.connectionState.descriptionColor)
                 
+                // Each row navigates to a detail screen while sharing the same stock model instance.
                 List(viewModel.stocks) { stock in
                     NavigationLink(
                         destination: StockDetailView(stock: stock)
@@ -48,6 +53,7 @@ struct StocksListView: View {
                 }
             }
             .task {
+                // Starts listening for connection state updates when the view appears.
                 viewModel.observeState()
             }
             .navigationTitle("Stocks")
@@ -57,5 +63,6 @@ struct StocksListView: View {
 }
 
 #Preview {
+    // Preview wires the screen with concrete app dependencies for quick inspection.
     StocksListView(viewModel: StockListViewModel(stockUseCase: StockUseCase(service: WebSocketService())))
 }
